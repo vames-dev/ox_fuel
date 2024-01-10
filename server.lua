@@ -1,10 +1,8 @@
 if not lib.checkDependency('ox_lib', '3.0.0', true) then return end
 
-if not lib.checkDependency('ox_inventory', '2.28.4', true) then return end
+-- if not lib.checkDependency('ox_inventory', '2.28.4', true) then return end
 
 lib.locale()
-
-if Config.versionCheck then lib.versionCheck('overextended/ox_fuel') end
 
 local ox_inventory = exports.ox_inventory
 
@@ -39,18 +37,10 @@ exports('setPaymentMethod', function(fn)
 	payMoney = fn or defaultPaymentMethod
 end)
 
-RegisterNetEvent('ox_fuel:pay', function(price, fuel, netid)
-	assert(type(price) == 'number', ('Price expected a number, received %s'):format(type(price)))
-
-	if not payMoney(source, price) then return end
-
+RegisterNetEvent('ox_fuel:pay', function(fuel, netid)
+	print(netid, fuel)
 	fuel = math.floor(fuel)
 	setFuelState(netid, fuel)
-
-	TriggerClientEvent('ox_lib:notify', source, {
-		type = 'success',
-		description = locale('fuel_success', fuel, price)
-	})
 end)
 
 RegisterNetEvent('ox_fuel:fuelCan', function(hasCan, price)
@@ -90,7 +80,6 @@ end)
 RegisterNetEvent('ox_fuel:updateFuelCan', function(durability, netid, fuel)
 	local source = source
 	local item = ox_inventory:GetCurrentWeapon(source)
-
 	if item and durability > 0 then
 		durability = math.floor(item.metadata.durability - durability)
 		item.metadata.durability = durability
@@ -99,8 +88,6 @@ RegisterNetEvent('ox_fuel:updateFuelCan', function(durability, netid, fuel)
 		ox_inventory:SetMetadata(source, item.slot, item.metadata)
 		setFuelState(netid, fuel)
 	end
-
-	-- player is sus?
 end)
 
 RegisterNetEvent('ox_fuel:createStatebag', function(netid, fuel)
@@ -110,4 +97,9 @@ RegisterNetEvent('ox_fuel:createStatebag', function(netid, fuel)
 	if state and not state.fuel and GetEntityType(vehicle) == 2 and NetworkGetEntityOwner(vehicle) == source then
 		state:set('fuel', fuel > 100 and 100 or fuel, true)
 	end
+end)
+
+RegisterServerEvent('fuel:fuelHasBeenStealed')
+AddEventHandler('fuel:fuelHasBeenStealed', function(storeId, plate, fuelCount)
+	exports.vms_stores:sendAnnouncement(source, storeId, (Config.StealedFuelText):format(plate, fuelCount), 'monitoring')
 end)
