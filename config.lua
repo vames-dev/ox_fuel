@@ -1,16 +1,16 @@
 Config = {
-	-- Get notified when a new version releases
-	versionCheck = true,
-
 	-- Enable support for ox_target
 	ox_target = false,
 
-	/*
-	* Show or hide gas stations blips
-	* 0 - Hide all
-	* 1 - Show nearest (5000ms interval check)
-	* 2 - Show all
-	*/
+	-- VMS MODITICATIONS:
+	AbilityStealFuel = false,
+	StealedFuelText = "A vehicle with %s license plate number was registered and drove away from the gas station without paying for %sL of fuel.",
+
+
+	-- Show or hide gas stations blips
+	-- 0 - Hide all
+	-- 1 - Show nearest (5000ms interval check)
+	-- 2 - Show all
 	showBlips = 1,
 
 	-- What keys to disable while fueling
@@ -32,7 +32,7 @@ Config = {
 
 	-- Enables fuel can
 	petrolCan = {
-		enabled = true,
+		enabled = false,
 		duration = 5000,
 		price = 1000,
 		refillPrice = 800,
