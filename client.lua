@@ -311,7 +311,7 @@ local function startFueling(vehicle, isPump)
 		price = 0
 		moneyAmount = getMoneyAmount()
 
-		if storeFuel <= 0 then
+		if currentStore and storeFuel <= 0 then
 			return lib.notify({
 				type = 'error',
 				description = locale('not_enough_fuel')
