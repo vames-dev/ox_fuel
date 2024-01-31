@@ -1,10 +1,6 @@
 if not lib.checkDependency('ox_lib', '3.0.0', true) then return end
 
--- if not lib.checkDependency('ox_inventory', '2.28.4', true) then return end
-
 lib.locale()
-
-
 
 local currentVehicle = nil
 local currentStore = nil
@@ -15,6 +11,7 @@ local fuelCount = 0
 AddEventHandler('vms_stores:enterStoreZone', function(storeId)
 	paidForFuel = false
 	currentStore = storeId
+	storeFuel = 99999999999
 end)
 
 RegisterNetEvent('vms_stores:fuelStoreUpdated', function(storeId, fuel)
@@ -65,23 +62,7 @@ local function nozzleObj(spawn)
 			return
 		end
 		RopeLoadTextures()
-		rope = AddRope(
-			nearestPumpCoords.x, nearestPumpCoords.y, nearestPumpCoords.z,
-			0.0, -- rotX
-			0.0, -- rotY
-			0.0, -- rotZ
-			1.0, -- maxLength
-			2, -- ropeType
-			1.0, -- initLength
-			1.0, -- minLength
-			0.0, -- lengthChangeRate
-			false, -- onlyPPU
-			false, -- collisionOn
-			false, -- lockFromFront
-			5.0, -- timeMultiplier
-			false,-- breakable
-		  	1
-		)
+		rope = AddRope(nearestPumpCoords.x, nearestPumpCoords.y, nearestPumpCoords.z, 0.0, 0.0, 0.0, 1.0, 2, 1.0, 1.0, 0.0, false, false, false, 5.0, false, 1)
 		nozzle = CreateObject(joaat('prop_cs_fuel_nozle'), nearestPumpCoords.x, nearestPumpCoords.y, nearestPumpCoords.z, false, false, false) 
 		AttachEntityToEntity(nozzle, myPed, GetPedBoneIndex(myPed, 18905), 0.09, 0.04, -0.01, 40.0, -90.0, -170.0, 0, false, false, false, false, true)
 		StartRopeWinding(rope)
