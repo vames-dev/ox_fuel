@@ -1,6 +1,30 @@
 if not lib.checkDependency('ox_lib', '3.0.0', true) then return end
-
 lib.locale()
+
+local playerCash = 0
+
+local getMyFramework = function()
+	if GetResourceState('es_extended') == 'started' then
+		RegisterNetEvent('esx:playerLoaded')
+		AddEventHandler('esx:playerLoaded', function(playerData)
+			playerCash = playerData.money
+		end)
+
+		RegisterNetEvent('esx:setAccountMoney')
+		AddEventHandler('esx:setAccountMoney', function(account)
+			playerCash = account.money
+		end)
+		
+		return 'esx', exports['es_extended']:getSharedObject()
+
+	elseif GetResourceState('qb-core') == 'started' then
+		
+		return 'qb-core', exports['qb-core']:GetCoreObject()
+		
+	end
+end
+local CoreName, Core = getMyFramework() 
+
 
 local currentVehicle = nil
 local currentStore = nil
@@ -40,13 +64,22 @@ AddEventHandler('vms_stores:exitStoreZone', function()
 	currentVehicle = nil
 end)
 
-
-
-local fuelingCan = exports.ox_inventory:getCurrentWeapon()
-
-AddEventHandler('ox_inventory:currentWeapon', function(currentWeapon)
-	fuelingCan = currentWeapon?.name == 'WEAPON_PETROLCAN' and currentWeapon
+local fuelingCan = nil
+local isUsingOXInventory = false
+Citizen.CreateThread(function()
+	Citizen.Wait(5000)
+	if GetResourceState('ox_inventory') == 'started' then
+		isUsingOXInventory = true
+		
+		fuelingCan = exports.ox_inventory:getCurrentWeapon()
+		
+		AddEventHandler('ox_inventory:currentWeapon', function(currentWeapon)
+			fuelingCan = currentWeapon?.name == 'WEAPON_PETROLCAN' and currentWeapon
+		end)
+	end
 end)
+
+
 
 local isFueling = false
 local nearestPump
@@ -121,7 +154,6 @@ lib.onCache('seat', function(seat)
 			local vehicle = cache.vehicle
 			local multiplier = Config.classUsage[GetVehicleClass(vehicle)] or 1.0
 
-			-- Vehicle doesn't use fuel
 			if multiplier == 0.0 then return end
 
 			local state = Entity(vehicle).state
@@ -184,33 +216,26 @@ end
 
 CreateThread(function()
 	local blip
-
 	if Config.ox_target and Config.showBlips ~= 1 then return end
-
 	while true do
 		local playerCoords = GetEntityCoords(cache.ped)
-
 		for station, pumps in pairs(stations) do
 			local stationDistance = #(playerCoords - station)
 			if stationDistance < 60 then
 				if Config.showBlips == 1 and not blip then
 					blip = createBlip(station)
 				end
-
 				if not Config.ox_target then
 					repeat
 						if stationDistance < 15 then
 							local pumpDistance
-
 							repeat
 								playerCoords = GetEntityCoords(cache.ped)
 								for i = 1, #pumps do
 									local pump = pumps[i]
 									pumpDistance = #(playerCoords - pump)
-
 									if pumpDistance < 3 then
 										nearestPump = pump
-
 										while pumpDistance < 3 do
 											if cache.vehicle then
 												DisplayHelpTextThisFrame('fuelLeaveVehicleText', false)
@@ -235,15 +260,12 @@ CreateThread(function()
 							until pumpDistance > 15
 							break
 						end
-
 						Wait(100)
 						stationDistance = #(GetEntityCoords(cache.ped) - station)
 					until stationDistance > 60
 				end
 			end
 		end
-
-
 		Wait(500)
 		if blip then
 			RemoveBlip(blip)
@@ -256,19 +278,21 @@ if Config.showBlips == 2 then
 	for station in pairs(stations) do createBlip(station) end
 end
 
--- local ox_inventory = exports.ox_inventory
 
 -- ---@return number
-local function defaultMoneyCheck()
-	return 300000
-	-- return ox_inventory:Search('count', 'money')
+local function defaultMoneyCheck(isStore)
+	if isStore then
+		return 99999999999
+	end
+	if CoreName == 'esx' then
+		return playerCash
+	elseif CoreName == 'qb-core' then
+		return Core.Functions.GetPlayerData().money.cash
+	end
+	return 0
 end
 
 local getMoneyAmount = defaultMoneyCheck
-
-exports('setMoneyCheck', function(fn)
-	getMoneyAmount = fn or defaultMoneyCheck
-end)
 
 -- fuelingMode = 1 - Pump
 -- fuelingMode = 2 - Can
@@ -287,36 +311,44 @@ local function startFueling(vehicle, isPump)
 	if 100 - fuel < Config.refillValue then
 		return lib.notify({type = 'error', description = locale('tank_full')})
 	end
-
+	
 	if isPump then
 		price = 0
-		moneyAmount = getMoneyAmount()
-
+		moneyAmount = getMoneyAmount(currentStore ~= nil)
+		print('money',moneyAmount)
 		if currentStore and storeFuel <= 0 then
 			return lib.notify({
 				type = 'error',
 				description = locale('not_enough_fuel')
 			})
 		end
-		currentVehicle = vehicle
+
+		if currentStore then
+			currentVehicle = vehicle
+		end
+
 		if Config.priceTick > moneyAmount then
 			return lib.notify({
 				type = 'error',
 				description = locale('not_enough_money', Config.priceTick)
 			})
 		end
+		
 	elseif not fuelingCan then
 		return lib.notify({type = 'error', description = locale('petrolcan_not_equipped')})
+		
 	elseif fuelingCan.metadata.ammo <= Config.durabilityTick then
 		return lib.notify({
 			type = 'error',
 			description = locale('petrolcan_not_enough_fuel')
 		})
+		
 	end
 
 	isFueling = true
-	nozzleObj(true)
-
+	if isPump then
+		nozzleObj(true)
+	end
 	TaskTurnPedToFaceEntity(cache.ped, vehicle, duration)
 	Wait(500)
 
@@ -341,30 +373,37 @@ local function startFueling(vehicle, isPump)
 
 	while isFueling do
 		if isPump then
-			price += Config.priceTick
-
-			if price + Config.priceTick >= moneyAmount then
-				lib.cancelProgress()
+			if not currentStore then
+				price += Config.priceTick
+	
+				if price + Config.priceTick >= moneyAmount then
+					if lib.progressActive() then
+						lib.cancelProgress()
+					end
+				end
+			else
+				local ranOutOfFuel = exports['vms_stores']:addFuelToCart(Config.refillValue)
+				if ranOutOfFuel then
+					if lib.progressActive() then
+						lib.cancelProgress()
+					end
+					break
+				end
+				fuelCount += Config.refillValue
 			end
 		else
 			durability += Config.durabilityTick
 
 			if durability >= fuelingCan.metadata.ammo then
-				lib.cancelProgress()
+				if lib.progressActive() then
+					lib.cancelProgress()
+				end
 				durability = fuelingCan.metadata.ammo
 				break
 			end
 		end
 
-		local ranOutOfFuel = exports['vms_stores']:addFuelToCart(Config.refillValue)
-		if ranOutOfFuel then
-			lib.cancelProgress()
-			break
-		end
-
-		fuelCount += Config.refillValue
 		fuel += Config.refillValue
-
 
 		if fuel >= 100 then
 			isFueling = false
@@ -377,8 +416,12 @@ local function startFueling(vehicle, isPump)
 	ClearPedTasks(cache.ped)
 
 	if isPump then
-		if Config.AbilityStealFuel then
-			TriggerServerEvent('ox_fuel:pay', fuel, NetworkGetNetworkIdFromEntity(vehicle))
+		if not currentStore then
+			TriggerServerEvent('ox_fuel:pay', fuel, NetworkGetNetworkIdFromEntity(vehicle), price)
+		else
+			if Config.AbilityStealFuel then
+				TriggerServerEvent('ox_fuel:pay', fuel, NetworkGetNetworkIdFromEntity(vehicle))
+			end
 		end
 	else
 		TriggerServerEvent('ox_fuel:updateFuelCan', durability, NetworkGetNetworkIdFromEntity(vehicle), fuel)
@@ -486,13 +529,13 @@ if not Config.ox_target then
 	TriggerEvent('chat:removeSuggestion', '/startfueling')
 end
 
-
 if Config.ox_target then
 	if Config.petrolCan.enabled then
 		exports.ox_target:addModel(Config.pumpModels, {
 			{
 				distance = 2,
 				onSelect = function()
+					print(getMoneyAmount())
 					if getMoneyAmount() >= Config.priceTick then
 						startFueling(lastVehicle, 1)
 					else
@@ -520,6 +563,9 @@ if Config.ox_target then
 					end
 
 					return getPetrolCan(data.coords, petrolCan)
+				end,
+				canInteract = function()
+					return isUsingOXInventory
 				end,
 				icon = "fas fa-faucet",
 				label = locale('petrolcan_buy_or_refill'),
