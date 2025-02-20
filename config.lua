@@ -1,11 +1,10 @@
 Config = {
 	-- Enable support for ox_target
-	ox_target = false,
+	ox_target = true,
 
 	-- VMS MODITICATIONS:
-	AbilityStealFuel = false,
+	AbilityStealFuel = true,
 	StealedFuelText = "A vehicle with %s license plate number was registered and drove away from the gas station without paying for %sL of fuel.",
-
 
 	-- Show or hide gas stations blips
 	-- 0 - Hide all
@@ -32,7 +31,7 @@ Config = {
 
 	-- Enables fuel can
 	petrolCan = {
-		enabled = false,
+		enabled = true,
 		duration = 5000,
 		price = 1000,
 		refillPrice = 800,
