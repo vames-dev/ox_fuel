@@ -451,7 +451,7 @@ local function getPetrolCan(pumpCoord, refuel)
 			flags = 49,
 		}
 	}) then
-		if refuel and ox_inventory:Search('count', 'WEAPON_PETROLCAN') then
+		if refuel and exports.ox_inventory:Search('count', 'WEAPON_PETROLCAN') then
 			return TriggerServerEvent('ox_fuel:fuelCan', true, Config.petrolCan.refillPrice)
 		end
 
